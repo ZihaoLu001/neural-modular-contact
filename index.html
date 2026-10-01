@@ -432,6 +432,29 @@ footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--rule);
     if (parent) parent.appendChild(e);
     return e;
   };
+
+  (function graphSketch() {
+    // two facing surface patches of triangulated grid, with cross-body contact edges between nearby vertices
+    const patch = (g, x0, y0) => {
+      const P = [];
+      for (let j = 0; j < 7; j++) for (let i = 0; i < 4; i++) P.push([x0 + i * 20, y0 + j * 24]);
+      const id = (i, j) => j * 4 + i;
+      for (let j = 0; j < 7; j++) for (let i = 0; i < 4; i++) {
+        const a = P[id(i, j)];
+        if (i < 3) el("line", { x1: a[0], y1: a[1], x2: P[id(i + 1, j)][0], y2: P[id(i + 1, j)][1], class: "d-mesh" }, g);
+        if (j < 6) el("line", { x1: a[0], y1: a[1], x2: P[id(i, j + 1)][0], y2: P[id(i, j + 1)][1], class: "d-mesh" }, g);
+        if (i < 3 && j < 6) el("line", { x1: a[0], y1: a[1], x2: P[id(i + 1, j + 1)][0], y2: P[id(i + 1, j + 1)][1], class: "d-mesh" }, g);
+      }
+      return P;
+    };
+    const A = patch(document.getElementById("faceA"), 45, 52);
+    const B = patch(document.getElementById("faceB"), 131, 62);
+    const ce = document.getElementById("cedges");
+    A.forEach(a => B.forEach(b => {
+      if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 46 && a[0] > 80 && b[0] < 155) el("line", { x1: a[0], y1: a[1], x2: b[0], y2: b[1], class: "d-contact" }, ce);
+    }));
+    [[A, "faceA"], [B, "faceB"]].forEach(([P, gid]) => P.forEach(p => el("circle", { cx: p[0], cy: p[1], r: 2.8, class: "d-node" }, document.getElementById(gid))));
+  })();
   function tooltip(host) {
     const t = document.createElement("div");
     t.className = "tip"; t.hidden = true; host.appendChild(t);
