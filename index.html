@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neural Modular Contact</title>
+<meta name="description" content="A learned contact module for Neural Modular Physics, swappable with an IPC contact projection that takes over whenever an answer fails the collision check.">
+<meta property="og:title" content="Neural Modular Contact">
+<meta property="og:description" content="A learned contact module for Neural Modular Physics, swappable with an IPC contact projection that takes over whenever an answer fails the collision check.">
+<meta property="og:image" content="assets/videos/two_cubes_20015_poster.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column (68ch) inside a wider media frame (1080px); figures and videos run to the frame,
+   prose stays in the column. Colors: cool paper and ink; the three series colors carry identity everywhere
+   (IPC projection blue, base module orange, gap-aware module aqua), in charts, tables, video strips. */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --ink: #16202a;
+  --ink-2: #44515f;
+  --muted: #687584;
+  --rule: #dce1e7;
+  --code-bg: #eef1f4;
+  --ipc: #2a78d6;
+  --stage1: #eb6834;
+  --gapaware: #1baf7a;
+  --focus: #2a78d6;
+  --f-display: "Spectral", "Iowan Old Style", Georgia, serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --frame: 1080px;
+  --col: 68ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1217; --surface: #151b22; --ink: #e6eaef; --ink-2: #b9c2cc; --muted: #8b96a3; --rule: #27313b;
+    --code-bg: #1b232c; --ipc: #3987e5; --stage1: #d95926; --gapaware: #199e70; --focus: #6da7ec; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1217; --surface: #151b22; --ink: #e6eaef; --ink-2: #b9c2cc; --muted: #8b96a3; --rule: #27313b;
+  --code-bg: #1b232c; --ipc: #3987e5; --stage1: #d95926; --gapaware: #199e70; --focus: #6da7ec; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16.5px; line-height: 1.62; }
+.wrap { max-width: var(--frame); margin: 0 auto; padding-inline: 20px; padding-block: 0 72px; }
+.col { max-width: var(--col); }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 500; text-wrap: balance; color: var(--ink); }
+h1 { font-size: clamp(2.3rem, 5.5vw, 3.6rem); line-height: 1.05; margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: 1.85rem; line-height: 1.2; margin: 0 0 14px; }
+h3 { font-size: 1.32rem; line-height: 1.3; margin: 0 0 10px; }
+p { margin: 0 0 14px; }
+a { color: var(--ink); text-decoration-color: var(--muted); text-underline-offset: 3px; }
+a:hover { text-decoration-color: var(--ink); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+sub, sup { line-height: 0; }
+.math { font-family: var(--f-display); font-style: italic; white-space: nowrap; }
+.mono { font-family: var(--f-mono); font-size: 0.9em; }
+.eyebrow { font-family: var(--f-mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+
+header.hero { padding-block: 64px 28px; display: grid; gap: 18px; }
+.subtitle { font-family: var(--f-display); font-size: clamp(1.15rem, 2.4vw, 1.45rem); line-height: 1.4; color: var(--ink-2); max-width: 46ch; margin: 0; }
+.byline { display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: baseline; color: var(--ink-2); }
+.byline strong { color: var(--ink); font-weight: 600; }
+.status { font-family: var(--f-mono); font-size: 0.8rem; color: var(--muted); border: 1px solid var(--rule); padding: 3px 9px; border-radius: 3px; }
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 0.93rem; padding-top: 4px; }
+nav.toc a { text-decoration: none; color: var(--ink-2); border-bottom: 1px solid var(--rule); }
+nav.toc a:hover { color: var(--ink); border-color: var(--ink); }
+
+section { padding-block: 44px 8px; border-top: 1px solid var(--rule); margin-top: 36px; }
+section.first { border-top: 0; margin-top: 0; padding-top: 8px; }
+.lede { font-size: 1.08rem; color: var(--ink-2); }
+
+figure { margin: 22px 0 8px; }
+figcaption { font-size: 0.9rem; line-height: 1.55; color: var(--ink-2); max-width: var(--col); margin-top: 10px; }
+figcaption b { color: var(--ink); font-weight: 600; }
+.media { background: var(--surface); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+video, .media img { display: block; width: 100%; height: auto; max-width: 100%; }
+.media img { background: #ffffff; }
+.scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.diagram { background: var(--surface); border: 1px solid var(--rule); border-radius: 4px; padding: 18px 14px; }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+
+/* diagram parts, drawn from tokens so both themes read */
+.d-box { fill: var(--surface); stroke: var(--ink-2); stroke-width: 1.2; }
+.d-soft { fill: var(--code-bg); stroke: var(--rule); stroke-width: 1; }
+.d-nn { fill: var(--surface); stroke: var(--stage1); stroke-width: 2; }
+.d-ipc { fill: var(--surface); stroke: var(--ipc); stroke-width: 2; }
+.d-line { stroke: var(--ink-2); stroke-width: 1.4; fill: none; }
+.d-dash { stroke: var(--muted); stroke-width: 1.3; fill: none; stroke-dasharray: 5 4; }
+.d-arrow { fill: var(--ink-2); }
+.d-t { fill: var(--ink); font-family: var(--f-body); font-size: 14px; }
+.d-tb { fill: var(--ink); font-family: var(--f-body); font-size: 14.5px; font-weight: 600; }
+.d-ts { fill: var(--ink-2); font-family: var(--f-body); font-size: 12.5px; }
+.d-tm { fill: var(--ink); font-family: var(--f-display); font-style: italic; font-size: 15px; }
+.d-tn { fill: var(--stage1); font-family: var(--f-body); font-size: 13px; font-weight: 600; }
+.d-ti { fill: var(--ipc); font-family: var(--f-body); font-size: 13px; font-weight: 600; }
+.d-node { fill: var(--ink-2); }
+.d-mesh { stroke: var(--muted); stroke-width: 1; }
+.d-contact { stroke: var(--stage1); stroke-width: 1.4; stroke-dasharray: 3 3; }
+
+table { border-collapse: collapse; width: 100%; font-size: 0.93rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 600; color: var(--ink); }
+td.num, th.num { text-align: right; font-family: var(--f-mono); font-size: 0.88rem; white-space: nowrap; }
+.table-wrap { overflow-x: auto; margin: 18px 0 6px; }
+.table-wrap table { min-width: 620px; }
+.key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.k-ipc { background: var(--ipc); } .k-s1 { background: var(--stage1); } .k-ga { background: var(--gapaware); }
+
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 20px; }
+.grid-2 > * { min-width: 0; }
+.chart { background: var(--surface); border: 1px solid var(--rule); border-radius: 4px; padding: 14px 14px 8px; position: relative; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart-title { font-size: 0.92rem; font-weight: 600; margin: 0 0 2px; }
+.chart-sub { font-size: 0.82rem; color: var(--muted); margin: 0 0 6px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.86rem; color: var(--ink-2); margin: 14px 0 0; }
+.ax-t { fill: var(--muted); font-family: var(--f-mono); font-size: 11px; }
+.ax-l { fill: var(--ink-2); font-family: var(--f-body); font-size: 12px; }
+.grid-l { stroke: var(--rule); stroke-width: 1; }
+.zero-l { stroke: var(--muted); stroke-width: 1; }
+.lbl { font-family: var(--f-body); font-size: 11.5px; font-weight: 600; fill: var(--ink); }
+.val { font-family: var(--f-mono); font-size: 10.5px; fill: var(--ink-2); }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 0.8rem; line-height: 1.4;
+       padding: 6px 9px; border-radius: 3px; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); }
+.hit { fill: transparent; cursor: default; }
+
+.videos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 26px 22px; margin-top: 18px; }
+.videos figure { margin: 0; min-width: 0; }
+.tag { font-family: var(--f-mono); font-size: 0.74rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+
+ul.plain { padding-left: 1.1em; margin: 0 0 14px; }
+ul.plain li { margin-bottom: 8px; }
+.refs { font-size: 0.9rem; color: var(--ink-2); }
+.refs li { margin-bottom: 7px; }
+footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--rule); font-size: 0.85rem; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">Research prototype · deformable-body contact</div>
+  <h1>Neural Modular Contact</h1>
+  <p class="subtitle">A learned contact module for Neural Modular Physics, swappable with an IPC contact projection that takes over whenever an answer fails the collision check.</p>
+  <div class="byline">
+    <span><strong>Zihao Lu</strong></span>
+    <span class="status">Preliminary results · October 2026</span>
+  </div>
+  <nav class="toc" aria-label="Sections">
+    <a href="#abstract">Abstract</a><a href="#method">Method</a><a href="#network">Network</a><a href="#results">Results</a><a href="#videos">Videos</a><a href="#next">Next steps</a><a href="#related">Related work</a>
+  </nav>
+</header>
+
+<figure>
+  <div class="media">
+    <video id="teaser" src="assets/videos/two_cubes_20015.mp4" poster="assets/videos/two_cubes_20015_poster.jpg" controls muted loop playsinline autoplay preload="metadata"></video>
+  </div>
+  <figcaption id="teaser-cap"><b>Two soft cubes collide in a test scene the module never saw (no friction).</b> Left: monolithic IPC, the reference. Middle: the classical split, where each step is an elastic prediction followed by a contact correction solved by IPC's barrier and friction potentials (the IPC contact projection). Right: the same split with the base neural module computing the correction and no classical iterations after it (<span class="math">k</span> = 0); a step whose answer fails the intersection and inversion check goes to the projection. The module's answer is accepted on 114 of the 116 steps with contact pairs. The strip shows each split's distance to the reference in % of the 0.1 m cube side; at 0.1 s the module is 1.10% away and the classical split 1.27%. Slowed 16.7 times.</figcaption>
+</figure>
+
+<section id="abstract" class="first">
+  <h2>Abstract</h2>
+  <div class="col">
+    <p>Neural Modular Physics (NMP) learns elastic simulation as neural modules inside the finite-element pipeline, each swappable with its numerical counterpart, and names a collision module as the missing piece for scenes with several bodies. This project builds that module for colliding soft bodies. A graph network over surface vertices outputs contact impulses through the same interface as an IPC contact projection, and the projection stays behind it: every answer is checked for intersections and inverted elements, and the projection takes the step when the check fails.</p>
+    <p>On 43 unseen collisions of two and three neo-Hookean cubes, the module's answer is accepted on 83 to 99% of the steps with a contact force, and every rollout stays free of intersections and inverted elements. With the network's measured 2.2 ms GPU forward pass, the contact stage takes 3.1 to 7.9 times less time on average than the converged projection. The median rollout error at 0.1 s is 0.44 to 2.58% of the cube side, against 0.29 to 0.75% for the classical split; in frictionless two-cube collisions the two match (1.25 against 1.26%). Two findings set the next version. A module trained on converged projections lacks the barrier's gap feedback; exact barrier-scale distances and off-equilibrium labels restore it, without lowering the rollout error. Most of the remaining error comes from friction and shows up as post-collision spin.</p>
+  </div>
+</section>
+
+<section id="method">
+  <div class="eyebrow">Method</div>
+  <h2>Where the module sits</h2>
+  <div class="col">
+    <p class="lede">One time step is split in two. An elastic prediction advances the bodies without contact; a contact stage then corrects it. The neural module and the IPC contact projection both fill the contact stage, behind the same interface.</p>
+  </div>
+  <figure>
+    <div class="diagram scroll-x" role="img" aria-label="Pipeline of one time step: elastic prediction, contact stage filled by the neural module or the IPC projection, update through W, check, next state.">
+      <svg viewBox="0 0 1000 300" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="d-arrow"/></marker>
+        </defs>
+        <!-- state -->
+        <rect x="10" y="96" width="78" height="56" rx="4" class="d-soft"/>
+        <text x="49" y="122" text-anchor="middle" class="d-tm">xⁿ, vⁿ</text>
+        <text x="49" y="141" text-anchor="middle" class="d-ts">state</text>
+        <line x1="88" y1="124" x2="116" y2="124" class="d-line" marker-end="url(#ah)"/>
+        <!-- elastic prediction -->
+        <rect x="118" y="80" width="168" height="88" rx="4" class="d-box"/>
+        <text x="202" y="106" text-anchor="middle" class="d-tb">Elastic prediction</text>
+        <text x="202" y="127" text-anchor="middle" class="d-ts">implicit FEM here;</text>
+        <text x="202" y="143" text-anchor="middle" class="d-ts">NMP's neural modules next</text>
+        <text x="202" y="161" text-anchor="middle" class="d-tm">→ x̃</text>
+        <line x1="286" y1="124" x2="314" y2="124" class="d-line" marker-end="url(#ah)"/>
+        <!-- contact stage -->
+        <rect x="316" y="30" width="236" height="188" rx="6" class="d-soft"/>
+        <text x="434" y="52" text-anchor="middle" class="d-tb">Contact impulses</text>
+        <rect x="332" y="66" width="204" height="52" rx="4" class="d-nn"/>
+        <text x="434" y="88" text-anchor="middle" class="d-tn">Neural contact module</text>
+        <text x="434" y="106" text-anchor="middle" class="d-ts">one forward pass, pair impulses p</text>
+        <text x="434" y="140" text-anchor="middle" class="d-ts">⇅ swap, same interface</text>
+        <rect x="332" y="152" width="204" height="52" rx="4" class="d-ipc"/>
+        <text x="434" y="174" text-anchor="middle" class="d-ti">IPC contact projection</text>
+        <text x="434" y="192" text-anchor="middle" class="d-ts">Newton + CCD line search</text>
+        <line x1="552" y1="124" x2="580" y2="124" class="d-line" marker-end="url(#ah)"/>
+        <!-- update -->
+        <rect x="582" y="80" width="176" height="88" rx="4" class="d-box"/>
+        <text x="670" y="106" text-anchor="middle" class="d-tb">Update</text>
+        <text x="670" y="130" text-anchor="middle" class="d-tm">x = x̃ + h W⁻¹ Σ Γᵀp</text>
+        <text x="670" y="152" text-anchor="middle" class="d-tm">W = M + h²K(x̃)</text>
+        <line x1="758" y1="124" x2="786" y2="124" class="d-line" marker-end="url(#ah)"/>
+        <!-- check -->
+        <rect x="788" y="80" width="118" height="88" rx="4" class="d-box"/>
+        <text x="847" y="106" text-anchor="middle" class="d-tb">Check</text>
+        <text x="847" y="127" text-anchor="middle" class="d-ts">CCD on xⁿ → x</text>
+        <text x="847" y="144" text-anchor="middle" class="d-ts">no inverted tet</text>
+        <line x1="906" y1="124" x2="930" y2="124" class="d-line" marker-end="url(#ah)"/>
+        <text x="962" y="129" text-anchor="middle" class="d-tm">xⁿ⁺¹</text>
+        <!-- fail path -->
+        <path d="M847,168 L847,250 L434,250 L434,206" class="d-dash" marker-end="url(#ah)"/>
+        <text x="640" y="243" text-anchor="middle" class="d-ts">answer fails the check: the IPC projection takes this step</text>
+        <!-- k dial -->
+        <text x="670" y="286" text-anchor="middle" class="d-ts">optional: k Newton iterations of the projection from the module's answer (k = 0 is full replacement)</text>
+      </svg>
+    </div>
+    <figcaption><b>One split step.</b> The update spreads pair impulses through the bodies with the elastic stiffness at the prediction; with classical FEM this is one back-substitution with the elastic step's factorization. The IPC contact projection solves <span class="math">argmin ½‖x − x̃‖²<sub>W</sub> + κB(x) + D(x)</span> with the IPC Toolkit's barrier <span class="math">B</span> (stiffness κ, width d̂ = 0.5 mm) and friction potential <span class="math">D</span> lagged at <span class="math">xⁿ</span>; it also supplies the training labels.</figcaption>
+  </figure>
+</section>
+
+<section id="network">
+  <div class="eyebrow">Method</div>
+  <h2>The network</h2>
+  <div class="col">
+    <p class="lede">An encode, process, decode graph network in the style of MeshGraphNets, with contact edges between bodies and an output that exchanges linear momentum exactly.</p>
+  </div>
+  <figure>
+    <div class="diagram scroll-x" role="img" aria-label="Network architecture: graph of surface vertices with mesh and contact edges, encoders, eight message-passing steps, decoder per directed contact edge, antisymmetric pair impulses, update through W.">
+      <svg viewBox="0 0 1000 330" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="d-arrow"/></marker>
+        </defs>
+        <!-- graph sketch -->
+        <text x="118" y="26" text-anchor="middle" class="d-tb">Graph at xⁿ and x̃</text>
+        <g id="faceA"></g><g id="faceB"></g><g id="cedges"></g>
+        <text x="118" y="232" text-anchor="middle" class="d-ts">nodes: surface vertices</text>
+        <text x="118" y="249" text-anchor="middle" class="d-ts">grey: mesh edges</text>
+        <text x="118" y="266" text-anchor="middle" class="d-ts" style="fill:var(--stage1)">dashed: contact edges, vertex pairs</text>
+        <text x="118" y="282" text-anchor="middle" class="d-ts" style="fill:var(--stage1)">of different bodies within 2 cm</text>
+        <line x1="236" y1="128" x2="262" y2="128" class="d-line" marker-end="url(#ah2)"/>
+        <!-- encoder -->
+        <rect x="264" y="46" width="138" height="164" rx="4" class="d-box"/>
+        <text x="333" y="70" text-anchor="middle" class="d-tb">Encoder</text>
+        <rect x="278" y="84" width="110" height="30" rx="3" class="d-soft"/><text x="333" y="104" text-anchor="middle" class="d-ts">node MLP</text>
+        <rect x="278" y="120" width="110" height="30" rx="3" class="d-soft"/><text x="333" y="140" text-anchor="middle" class="d-ts">mesh-edge MLP</text>
+        <rect x="278" y="156" width="110" height="30" rx="3" class="d-soft"/><text x="333" y="176" text-anchor="middle" class="d-ts">contact-edge MLP</text>
+        <line x1="402" y1="128" x2="428" y2="128" class="d-line" marker-end="url(#ah2)"/>
+        <!-- processor -->
+        <rect x="438" y="58" width="190" height="160" rx="4" class="d-soft"/>
+        <rect x="430" y="50" width="190" height="160" rx="4" class="d-box"/>
+        <text x="525" y="76" text-anchor="middle" class="d-tb">Processor, 8 steps</text>
+        <text x="525" y="104" text-anchor="middle" class="d-ts">update mesh edges</text>
+        <text x="525" y="124" text-anchor="middle" class="d-ts">update contact edges</text>
+        <text x="525" y="144" text-anchor="middle" class="d-ts">aggregate both into nodes</text>
+        <text x="525" y="170" text-anchor="middle" class="d-ts">residual MLPs, latent 128</text>
+        <text x="525" y="190" text-anchor="middle" class="d-ts">2.15 M parameters in all</text>
+        <line x1="628" y1="128" x2="654" y2="128" class="d-line" marker-end="url(#ah2)"/>
+        <!-- decoder -->
+        <rect x="656" y="86" width="110" height="84" rx="4" class="d-box"/>
+        <text x="711" y="112" text-anchor="middle" class="d-tb">Decoder</text>
+        <text x="711" y="134" text-anchor="middle" class="d-ts">per directed</text>
+        <text x="711" y="150" text-anchor="middle" class="d-ts">contact edge</text>
+        <text x="711" y="164" text-anchor="middle" class="d-tm">q(i→j)</text>
+        <line x1="766" y1="128" x2="792" y2="128" class="d-line" marker-end="url(#ah2)"/>
+        <!-- antisymmetric -->
+        <rect x="794" y="56" width="196" height="146" rx="4" class="d-nn"/>
+        <text x="892" y="82" text-anchor="middle" class="d-tn">Pair impulses</text>
+        <text x="892" y="108" text-anchor="middle" class="d-tm">p<tspan font-size="11" dy="4">ij</tspan><tspan dy="-4"> = q(i→j) − q(j→i)</tspan></text>
+        <text x="892" y="134" text-anchor="middle" class="d-tm">f<tspan font-size="11" dy="4">i</tspan><tspan dy="-4"> = Σ</tspan><tspan font-size="11" dy="4">j</tspan><tspan dy="-4"> p</tspan><tspan font-size="11" dy="4">ij</tspan><tspan dy="-4">,  Σ</tspan><tspan font-size="11" dy="4">i</tspan><tspan dy="-4"> f</tspan><tspan font-size="11" dy="4">i</tspan><tspan dy="-4"> = 0</tspan></text>
+        <text x="892" y="162" text-anchor="middle" class="d-ts">linear momentum exchanged exactly</text>
+        <text x="892" y="186" text-anchor="middle" class="d-tm">x = x̃ + h W⁻¹ f</text>
+        <!-- inputs -->
+        <text x="264" y="244" class="d-tb">Inputs</text>
+        <text x="264" y="266" class="d-ts">node: predicted velocity, normals at xⁿ and x̃, lumped mass, friction coefficient μ, log κ</text>
+        <text x="264" y="284" class="d-ts">mesh edge: relative positions at xⁿ and x̃, rest length · contact edge: relative positions, normal gaps, relative velocity</text>
+        <text x="264" y="306" class="d-ts" style="fill:var(--gapaware)">gap-aware version adds: exact signed point-triangle distance to the other body, in units of d̂, at xⁿ and x̃</text>
+      </svg>
+    </div>
+    <figcaption><b>Architecture.</b> Features are translation invariant and rotations are learned by augmentation. Two versions are trained. The base module learns the converged projection's impulses <span class="math">−(κ∇B + ∇D)(xⁿ⁺¹)/h</span> per surface vertex on 50,729 steps of 368 random two-cube collisions at <span class="math">h</span> = 1 ms. The gap-aware module adds the exact distance features and 14,374 states with one body shifted off the barrier's equilibrium, labeled the same way. The base network's forward pass takes 2.2 ms per step on an RTX 5080.</figcaption>
+  </figure>
+</section>
+
+<section id="results">
+  <div class="eyebrow">Results</div>
+  <h2>1. The split step has to carry the elastic stiffness</h2>
+  <div class="col">
+    <p>Before any learning: splitting contact from elasticity stays accurate only if the contact impulses reach the bodies through the elastic stiffness. Through the lumped mass alone (<span class="math">W = M</span>) the split drifts 3 to 7% of the cube side from monolithic IPC in 0.1 s; through <span class="math">W = M + h²K</span> it stays within 0.04 to 0.48% (<span class="math">h</span> = 1 ms). This sets the update that the module's impulses pass through.</p>
+  </div>
+  <figure>
+    <div class="media"><img src="assets/figure1_split_floor.png" alt="RMS distance between the split pipeline and monolithic IPC over time, for three scenes and three step sizes, with W = M and W = M + h^2 K." loading="lazy"></div>
+    <figcaption><b>Split floor.</b> Two neo-Hookean cubes (1,000 vertices and 3,645 tetrahedra each, E = 100 kPa, ν = 0.4) collide at 1 m/s head-on, obliquely, and obliquely with friction μ = 0.3. Solid: <span class="math">W = M</span>; dashed: <span class="math">W = M + h²K</span>; colors are step sizes 0.5, 1 and 2 ms. At <span class="math">h</span> = 1 ms the monolithic reference differs from PolyFEM by at most 4·10⁻⁸ m RMS over 0.1 s on the two frictionless scenes.</figcaption>
+  </figure>
+
+  <h2 style="margin-top:40px">2. The swap: the module in place of the projection</h2>
+  <div class="col">
+    <p>43 test scenes the module never saw: 30 random two-cube collisions, the three scenes above, and 10 rows of three cubes, a body count absent from training. Each scene is simulated from the same initial state by monolithic IPC, by the classical split, and by the split with the module. Two versions of the module: <span style="color:var(--stage1);font-weight:600">base</span>, trained on converged projections, and <span style="color:var(--gapaware);font-weight:600">gap-aware</span>, with exact distances and off-equilibrium labels (section 3).</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th></th><th class="num">two cubes (30)</th><th class="num">Figure-1 scenes (3)</th><th class="num">three cubes (10)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Steps with a contact force where the module's answer is accepted, <span class="key k-s1"></span>base / <span class="key k-ga"></span>gap-aware</td><td class="num">83 / 84%</td><td class="num">94 / 99%</td><td class="num">91 / 94%</td></tr>
+        <tr><td>Rollout error at 0.1 s, median, % of side: <span class="key k-s1"></span>base / <span class="key k-ga"></span>gap-aware</td><td class="num">1.71 / 2.58</td><td class="num">0.44 / 0.44</td><td class="num">1.54 / 1.51</td></tr>
+        <tr><td><span class="key k-ipc"></span>Classical split with the converged projection</td><td class="num">0.75</td><td class="num">0.38</td><td class="num">0.29</td></tr>
+        <tr><td>Contact-stage speed-up, base module: mean time of the converged projection ÷ mean time of the module, rejected steps included (2.2 ms GPU forward pass)</td><td class="num">3.1×</td><td class="num">7.9×</td><td class="num">4.7×</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="col">
+    <p style="font-size:0.92rem;color:var(--ink-2)">Rollout error: RMS vertex distance to monolithic IPC. Rejected steps are solved by the projection and their time counts toward the module; for the base module they take most of it. Every rollout of both modules is free of intersections and inverted tetrahedra. The solver is a Python prototype on one CPU thread; the network is timed separately on the GPU.</p>
+  </div>
+
+  <h2 style="margin-top:40px">3. A module trained on converged projections barely reads the gap</h2>
+  <div class="col">
+    <p>A converged projection leaves the closest pair at its equilibrium distance, about 0.7 d̂ here. In such training data the gap barely varies, so the relative velocity can predict the impulse without it. The probe: at 189 steps of sustained contact, shift one body along its contact impulse by −0.4 to +0.8 d̂ and compare the impulse and the closest-pair distance of each answer. The projection pushes harder when the bodies start closer and returns the closest pair to its equilibrium distance from every tested start. The base module barely responds and carries 87% of the shift into its answer, so in a <span class="math">k</span> = 0 rollout a gap error can persist until an answer fails the intersection check. Exact barrier-scale distances alone barely change this (impulse slope −0.13 per d̂ of shift, against the projection's −0.43); with 14,374 off-equilibrium labels added, the gap-aware module responds like the projection (−0.40).</p>
+  </div>
+  <div class="grid-2">
+    <div class="chart" id="chart-impulse">
+      <p class="chart-title">Impulse on the shifted body</p>
+      <p class="chart-sub">relative to the projection's impulse at no shift; median per shift over 162 to 189 of the 189 probed steps</p>
+    </div>
+    <div class="chart" id="chart-gap">
+      <p class="chart-title">Closest pair distance of the answer</p>
+      <p class="chart-sub">in units of d̂ = 0.5 mm; median over steps</p>
+    </div>
+  </div>
+  <div class="legend" aria-hidden="true"><span><span class="key k-ipc"></span>IPC projection (converged)</span><span><span class="key k-s1"></span>base module</span><span><span class="key k-ga"></span>gap-aware module</span></div>
+
+  <h2 style="margin-top:40px">4. Most of the remaining error is friction</h2>
+  <div class="col">
+    <p>For both modules, aligning each body rigidly with the reference leaves 0.05 to 0.11% of the side: the <span class="math">k</span> = 0 error lies in how the bodies move after the collision, while their deformation matches. Splitting the test scenes by friction locates most of it. Without friction, two-cube rollouts of the module are as close to monolithic IPC as the classical split's; frictionless three-cube rows still end about three times further away (0.71 against 0.22%). With friction the module ends 4.5 to 4.8 times further away than the split in two-cube collisions and 5.3 to 5.6 times in three-cube rows. Neither restoring gap feedback nor lowering the per-step error on the module's own rollout states (from 0.163 to as low as 0.106 across four retrained versions) lowered the two-cube rollout error: no version differs from the base module (paired over the 30 scenes, Wilcoxon p ≥ 0.39). The base module's impulse error on validation states is the same with and without friction (0.064), which points to small tangential errors that add up over a contact instead of averaging out; the rollouts show them as spin.</p>
+  </div>
+  <div class="chart" id="chart-friction">
+    <p class="chart-title">Rollout error at 0.1 s by friction</p>
+    <p class="chart-sub">median RMS distance to monolithic IPC, % of the cube side; scene counts in brackets</p>
+  </div>
+  <div class="legend" aria-hidden="true"><span><span class="key k-ipc"></span>classical split (IPC projection)</span><span><span class="key k-s1"></span>base module</span><span><span class="key k-ga"></span>gap-aware module</span></div>
+
+  <h2 style="margin-top:40px">5. With a few classical iterations after it</h2>
+  <div class="col">
+    <p>Run a fixed number <span class="math">k</span> of the projection's Newton iterations from the module's answer instead of from <span class="math">xⁿ</span>, and the module becomes a learned start. IPC stopped after <span class="math">k</span> Newton iterations fails at steps where contact pairs enter the barrier zone within the step, because a start without those pairs cannot see them. At contact onset the module's answer already holds most of them (median 82% of the converged active pairs), and one iteration from it finds all of them. The median rollout error drops 2.4 to 10.5 times at <span class="math">k</span> = 1 and 1.6 to 1.8 times at <span class="math">k</span> = 2, three-cube rows included; the converged projection stays 1.5 to 2.9 times more accurate than <span class="math">k</span> = 2. Run to a tolerance, the learned start costs more: 6.6 against 5.6 Newton iterations per contact step on average for two cubes, because a minority of steps take many more.</p>
+  </div>
+  <figure>
+    <div class="media"><img src="assets/figure2_learned_start.png" alt="Bar charts of rollout error at 0.1 s for fixed iteration budgets from the classical start, the CCD start and the module's answer, in three scene groups." loading="lazy"></div>
+    <figcaption><b>Fixed iteration budgets.</b> Bars: median rollout error at 0.1 s; ticks: 90th percentile. <span class="math">xⁿ</span>: the classical start; CCD start: the farthest collision-free point toward the prediction; learned: the base module's answer. Tails are mixed: at <span class="math">k</span> = 1 the 90th percentile in the Figure-1 scenes is worse from the module (19.0 against 7.6%).</figcaption>
+  </figure>
+</section>
+
+<section id="videos">
+  <div class="eyebrow">Videos</div>
+  <h2>Rollouts</h2>
+  <div class="col">
+    <p>For each group of two- and three-cube scenes, split by friction, the scene whose base-module rollout error at 0.1 s is closest to the group median; the oblique impact is the one Figure-1 scene with friction. Same layout as the video at the top, base module, slowed 16.7 times.</p>
+  </div>
+  <div class="videos" id="video-grid"></div>
+</section>
+
+<section id="next">
+  <div class="eyebrow">Next steps</div>
+  <h2>What comes next</h2>
+  <div class="col">
+    <ul class="plain">
+      <li><b>Learned normal impulses, classical friction.</b> The network predicts only the normal (barrier) impulses; IPC's friction potential, with normal forces and tangent bases lagged at <span class="math">xⁿ</span>, computes friction after it, a smooth problem without the barrier's stiffness. The friction bound then holds by construction, with the normal force lagged as in IPC.</li>
+      <li><b>IPC primitive pairs as the interface.</b> Vertex-triangle and edge-edge pairs in place of vertex pairs, with normal impulses and the friction bound attached to each pair.</li>
+      <li><b>NMP's elastic modules in place of FEM.</b> The update's stiffness <span class="math">K</span> then comes from the Jacobian of the neural constitutive module.</li>
+      <li><b>Scale.</b> More bodies, stiffer materials, larger steps and 1,000-step rollouts.</li>
+      <li><b>Frictional contact learned from data.</b> Where the friction law is unknown, as in NMP's Friction benchmark (an elastic body sliding on a rough surface, data from DiffPD), keep the friction structure (cone, dissipation) and learn the rest from data.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="related">
+  <div class="eyebrow">Related work</div>
+  <h2>Builds on</h2>
+  <div class="col">
+    <ul class="plain refs">
+      <li>Y. Li, H. Wu, Z. Xu, T. Stuyck, W. Matusik. <a href="https://arxiv.org/abs/2512.15083">Neural Modular Physics for Elastic Simulation</a>. arXiv 2512.15083.</li>
+      <li>M. Li et al. <a href="https://ipc-sim.github.io/">Incremental Potential Contact</a>. SIGGRAPH 2020; <a href="https://ipctk.xyz/">IPC Toolkit</a>; <a href="https://polyfem.github.io/">PolyFEM</a>.</li>
+      <li>T. Pfaff, M. Fortunato, A. Sanchez-Gonzalez, P. Battaglia. <a href="https://arxiv.org/abs/2010.03409">Learning Mesh-Based Simulation with Graph Networks</a>. ICLR 2021.</li>
+      <li>K. R. Allen et al. <a href="https://arxiv.org/abs/2212.03574">Learning Rigid Dynamics with Face Interaction Graph Networks</a>. arXiv 2212.03574.</li>
+      <li>Y.-Y. Yu et al. <a href="https://arxiv.org/abs/2312.12467">Learning Flexible Body Collision Dynamics with Hierarchical Contact Mesh Transformer</a>. ICLR 2024.</li>
+      <li>A. Grigorev et al. <a href="https://arxiv.org/abs/2405.09522">ContourCraft: Learning to Resolve Intersections in Neural Multi-Garment Simulations</a>. SIGGRAPH 2024.</li>
+      <li>Z. He et al. <a href="https://arxiv.org/abs/2603.08079">M-ABD: Scalable, Efficient, and Robust Multi-Affine-Body Dynamics</a>. ACM TOG 2026.</li>
+      <li>V. Sharma, O. Fink. <a href="https://arxiv.org/abs/2501.07373">Dynami-CAL GraphNet</a>: momentum-conserving graph networks.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  Research prototype on the IPC Toolkit and PyTorch, trained and evaluated on one RTX 5080 workstation; every result is from scenes held out of training.
+</footer>
+</div>
+
+<script>
+(function () {
+  const C = {
+    projection: { label: "IPC projection", color: "var(--ipc)" },
+    stage1: { label: "base module", color: "var(--stage1)" },
+    gapaware: { label: "gap-aware module", color: "var(--gapaware)" }
+  };
+  const GAP = {
+    delta: [-0.4, -0.2, 0, 0.2, 0.4, 0.8],
+    projection: { impulse: [1.164, 1.078, 1.000, 0.911, 0.832, 0.705], gap: [0.690, 0.683, 0.692, 0.679, 0.692, 0.702] },
+    stage1: { impulse: [1.034, 1.019, 0.997, 0.979, 0.958, 0.915], gap: [0.318, 0.506, 0.675, 0.824, 0.972, 1.159] },
+    gapaware: { impulse: [1.172, 1.092, 0.996, 0.910, 0.838, 0.728], gap: [0.640, 0.654, 0.673, 0.632, 0.636, 0.637] }
+  };
+  const FRICTION = [
+    { group: "two cubes, no friction", n: 8, projection: 1.26, stage1: 1.25, gapaware: 0.97 },
+    { group: "two cubes, friction", n: 22, projection: 0.57, stage1: 2.55, gapaware: 2.76 },
+    { group: "three cubes, no friction", n: 5, projection: 0.22, stage1: 0.71, gapaware: 0.75 },
+    { group: "three cubes, friction", n: 5, projection: 0.46, stage1: 2.57, gapaware: 2.45 }
+  ];
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (tag, attrs, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+  function tooltip(host) {
+    const t = document.createElement("div");
+    t.className = "tip"; t.hidden = true; host.appendChild(t);
+    return {
+      show(html, x, y) { t.innerHTML = html; t.style.left = x + "px"; t.style.top = y + "px"; t.hidden = false; },
+      hide() { t.hidden = true; }
+    };
+  }
+  function posIn(host, svg, x, y) {
+    const r = svg.getBoundingClientRect(), h = host.getBoundingClientRect(), vb = svg.viewBox.baseVal;
+    return [r.left - h.left + x * r.width / vb.width, r.top - h.top + y * r.height / vb.height];
+  }
+
+  function lineChart(hostId, key, yMin, yMax, yTicks, yFmt, yLabel, refLine) {
+    const host = document.getElementById(hostId);
+    const W = 480, H = 280, m = { l: 52, r: 116, t: 12, b: 44 };
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": host.querySelector(".chart-title").textContent }, host);
+    const x = d => m.l + (d - (-0.4)) / 1.2 * (W - m.l - m.r);
+    const y = v => H - m.b - (v - yMin) / (yMax - yMin) * (H - m.t - m.b);
+    yTicks.forEach(v => {
+      el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: "grid-l" }, svg);
+      el("text", { x: m.l - 8, y: y(v) + 4, "text-anchor": "end", class: "ax-t" }, svg).textContent = yFmt(v);
+    });
+    if (refLine !== undefined) el("line", { x1: m.l, x2: W - m.r, y1: y(refLine), y2: y(refLine), class: "zero-l" }, svg);
+    GAP.delta.forEach(d => {
+      el("text", { x: x(d), y: H - m.b + 18, "text-anchor": "middle", class: "ax-t" }, svg).textContent = (d > 0 ? "+" : "") + d;
+    });
+    el("text", { x: (m.l + W - m.r) / 2, y: H - 6, "text-anchor": "middle", class: "ax-l" }, svg).textContent = "shift (d̂; negative = closer)";
+    el("text", { x: 14, y: (m.t + H - m.b) / 2, "text-anchor": "middle", class: "ax-l", transform: `rotate(-90 14 ${(m.t + H - m.b) / 2})` }, svg).textContent = yLabel;
+    const ends = [];
+    ["projection", "stage1", "gapaware"].forEach(s => {
+      const vals = GAP[s][key];
+      const pts = GAP.delta.map((d, i) => `${x(d)},${y(vals[i])}`).join(" ");
+      el("polyline", { points: pts, fill: "none", stroke: C[s].color, "stroke-width": s === "projection" ? 2.5 : 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+      GAP.delta.forEach((d, i) => el("circle", { cx: x(d), cy: y(vals[i]), r: 4, fill: C[s].color, stroke: "var(--surface)", "stroke-width": 2 }, svg));
+      ends.push({ s, y: y(vals[vals.length - 1]) });
+    });
+    ends.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 15) ends[i].y = ends[i - 1].y + 15;
+    ends.forEach(e => el("text", { x: W - m.r + 10, y: e.y + 4, class: "lbl" }, svg).textContent = C[e.s].label.replace(" (converged)", ""));
+    const tip = tooltip(host);
+    GAP.delta.forEach((d, i) => {
+      const r = el("rect", { x: x(d) - 22, y: m.t, width: 44, height: H - m.t - m.b, class: "hit" }, svg);
+      const html = `<b>shift ${d > 0 ? "+" : ""}${d} d̂</b><br>` + ["projection", "stage1", "gapaware"].map(s => `${C[s].label}: ${yFmt(GAP[s][key][i], true)}`).join("<br>");
+      r.addEventListener("mouseenter", () => { const p = posIn(host, svg, x(d), m.t + 10); tip.show(html, p[0], p[1] + 40); });
+      r.addEventListener("mouseleave", () => tip.hide());
+    });
+  }
+  lineChart("chart-impulse", "impulse", 0.6, 1.2, [0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2], (v, f) => f ? v.toFixed(3) : v.toFixed(1), "impulse / projection at no shift", 1.0);
+  lineChart("chart-gap", "gap", 0.2, 1.2, [0.2, 0.4, 0.6, 0.8, 1.0, 1.2], (v, f) => f ? v.toFixed(2) + " d̂" : v.toFixed(1), "distance (d̂)");
+
+  (function frictionChart() {
+    const host = document.getElementById("chart-friction");
+    const W = 940, H = 300, m = { l: 48, r: 12, t: 22, b: 52 };
+    const box = document.createElement("div");
+    box.className = "scroll-x";
+    host.appendChild(box);
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Rollout error at 0.1 s by friction, for the classical split and the two modules", style: "min-width:620px" }, box);
+    const yMax = 3;
+    const y = v => H - m.b - v / yMax * (H - m.t - m.b);
+    [0, 0.5, 1, 1.5, 2, 2.5, 3].forEach(v => {
+      el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: v === 0 ? "zero-l" : "grid-l" }, svg);
+      el("text", { x: m.l - 8, y: y(v) + 4, "text-anchor": "end", class: "ax-t" }, svg).textContent = v.toFixed(1);
+    });
+    el("text", { x: 14, y: (m.t + H - m.b) / 2, "text-anchor": "middle", class: "ax-l", transform: `rotate(-90 14 ${(m.t + H - m.b) / 2})` }, svg).textContent = "% of side";
+    const gw = (W - m.l - m.r) / FRICTION.length, bw = Math.min(46, gw / 5), gap = 2;
+    const tip = tooltip(host);
+    FRICTION.forEach((g, gi) => {
+      const cx = m.l + gw * (gi + 0.5);
+      el("text", { x: cx, y: H - m.b + 20, "text-anchor": "middle", class: "ax-l" }, svg).textContent = g.group;
+      el("text", { x: cx, y: H - m.b + 36, "text-anchor": "middle", class: "ax-t" }, svg).textContent = `(${g.n} scenes)`;
+      ["projection", "stage1", "gapaware"].forEach((s, si) => {
+        const x0 = cx + (si - 1.5) * (bw + gap) + gap / 2, v = g[s], top = y(v), base = y(0), r = 4;
+        const d = `M${x0},${base} L${x0},${top + r} Q${x0},${top} ${x0 + r},${top} L${x0 + bw - r},${top} Q${x0 + bw},${top} ${x0 + bw},${top + r} L${x0 + bw},${base} Z`;
+        el("path", { d, fill: C[s].color }, svg);
+        el("text", { x: x0 + bw / 2, y: top - 6, "text-anchor": "middle", class: "val" }, svg).textContent = v.toFixed(2);
+        const hit = el("rect", { x: x0 - 1, y: m.t, width: bw + 2, height: base - m.t, class: "hit" }, svg);
+        hit.addEventListener("mouseenter", () => { const p = posIn(host, svg, x0 + bw / 2, top); tip.show(`<b>${g.group}</b><br>${C[s].label === "IPC projection" ? "classical split" : C[s].label}: ${v.toFixed(2)}%`, p[0], p[1]); });
+        hit.addEventListener("mouseleave", () => tip.hide());
+      });
+    });
+  })();
+
+  const VIDEOS = [
+    { file: "two_cubes_20022", tag: "two cubes · friction μ = 0.24",
+      text: "The module's answer is accepted on 53 of the 72 steps with contact pairs. At 0.1 s: module 2.66%, classical split 0.83% of the side. The cubes leave the collision with a different spin." },
+    { file: "row3_30002", tag: "three cubes · no friction",
+      text: "A body count absent from training. The module's answer is accepted on 153 of the 168 steps with contact pairs. At 0.1 s: module 0.71%, classical split 0.22%." },
+    { file: "row3_30007", tag: "three cubes · friction μ = 0.18",
+      text: "The module's answer is accepted on 140 of the 144 steps with contact pairs. At 0.1 s: module 2.57%, classical split 0.10%; the error keeps growing as the bodies spin apart." },
+    { file: "b1_oblique_friction", tag: "oblique impact · friction μ = 0.3",
+      text: "The Figure-1 scene with friction. The module's answer is accepted on 184 of the 191 steps with contact pairs. At 0.1 s: module 2.11%, classical split 0.48%." }
+  ];
+  const grid = document.getElementById("video-grid");
+  VIDEOS.forEach(v => {
+    const f = document.createElement("figure");
+    f.innerHTML = `<div class="media"><video src="assets/videos/${v.file}.mp4" poster="assets/videos/${v.file}_poster.jpg" controls muted loop playsinline preload="metadata"></video></div>
+      <figcaption><span class="tag">${v.tag}</span><br>${v.text}</figcaption>`;
+    grid.appendChild(f);
+  });
+})();
+</script>
+
+</body>
+</html>
